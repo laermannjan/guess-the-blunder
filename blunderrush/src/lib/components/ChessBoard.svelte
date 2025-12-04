@@ -13,6 +13,8 @@
     orientation = 'white' as 'white' | 'black',
     interactive = true,
     onMove = undefined as ((move: { from: string; to: string; promotion?: string; uci: string; san: string; fen: string; color: 'white' | 'black' }) => void) | undefined,
+    lastMove = undefined as { from: string; to: string } | undefined,
+    lastMoveColor = 'green' as 'green' | 'red', // green for normal, red for opponent's last move
   } = $props();
 
   // Internal state
@@ -61,6 +63,7 @@
       fen: fen,
       orientation: orientation,
       turnColor: turn,
+      lastMove: lastMove ? [lastMove.from as Key, lastMove.to as Key] : undefined,
       animation: {
         enabled: true,
         duration: 200,
@@ -180,7 +183,7 @@
   }
 </script>
 
-<div class="board-container">
+<div class="board-container" class:red-last-move={lastMoveColor === 'red'}>
   <div class="board" bind:this={boardEl}></div>
 </div>
 
@@ -279,6 +282,11 @@
 
   :global(cg-board square.last-move) {
     background-color: rgba(155, 199, 0, 0.41);
+  }
+
+  /* Red last-move highlight for opponent's previous move */
+  .red-last-move :global(cg-board square.last-move) {
+    background-color: rgba(255, 100, 100, 0.5);
   }
 
   :global(cg-board square.selected) {

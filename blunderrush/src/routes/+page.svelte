@@ -1,125 +1,26 @@
 <script lang="ts">
-  import ChessBoard from '$lib/components/ChessBoard.svelte';
-  import MoveHistory from '$lib/components/MoveHistory.svelte';
-
-  interface MoveEntry {
-    san: string;
-    fen: string;
-    color: 'white' | 'black';
-    from: string;
-    to: string;
-  }
-
-  const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-
-  let moveHistory: MoveEntry[] = $state([]);
-  let currentMoveIndex = $state(-1);  // -1 = starting position
-  let startingFen = $state(STARTING_FEN);
-  let orientation: 'white' | 'black' = $state('white');
-
-  let chessBoardRef: ChessBoard;
-
-  // Computed current FEN based on move index
-  let currentFen = $derived(
-    currentMoveIndex === -1 ? startingFen : moveHistory[currentMoveIndex].fen
-  );
-
-  // Whether we're at the latest position (can make moves)
-  let isAtLatest = $derived(currentMoveIndex === moveHistory.length - 1 || (moveHistory.length === 0 && currentMoveIndex === -1));
-
-  function handleMove(move: { from: string; to: string; promotion?: string; uci: string; san: string; fen: string; color: 'white' | 'black' }) {
-    // Only allow moves if we're at the latest position
-    if (!isAtLatest) {
-      // Truncate history and allow new branch
-      moveHistory = moveHistory.slice(0, currentMoveIndex + 1);
-    }
-
-    moveHistory = [...moveHistory, {
-      san: move.san,
-      fen: move.fen,
-      color: move.color,
-      from: move.from,
-      to: move.to,
-    }];
-    currentMoveIndex = moveHistory.length - 1;
-  }
-
-  function handleNavigate(index: number) {
-    if (index < -1 || index >= moveHistory.length) return;
-    currentMoveIndex = index;
-
-    // Update the board position
-    if (index === -1) {
-      chessBoardRef?.setPosition(startingFen);
-    } else {
-      const move = moveHistory[index];
-      chessBoardRef?.setPosition(move.fen, { from: move.from, to: move.to });
-    }
-  }
-
-  function flipBoard() {
-    orientation = orientation === 'white' ? 'black' : 'white';
-  }
-
-  function resetBoard() {
-    startingFen = STARTING_FEN;
-    moveHistory = [];
-    currentMoveIndex = -1;
-    chessBoardRef?.setPosition(STARTING_FEN);
-  }
-
-  function loadTestPosition() {
-    // A famous position - Italian Game
-    startingFen = 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4';
-    moveHistory = [];
-    currentMoveIndex = -1;
-    chessBoardRef?.setPosition(startingFen);
-  }
-
-  function loadPuzzlePosition() {
-    // A position where Black just blundered with ...f6?? allowing Qh5#
-    // This is similar to what we'd show in a reverse puzzle
-    startingFen = 'rnbqkbnr/ppppp1pp/5p2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
-    moveHistory = [];
-    currentMoveIndex = -1;
-    chessBoardRef?.setPosition(startingFen);
-  }
 </script>
 
 <main>
   <h1>BlunderRush</h1>
-  <p class="subtitle">Find the blunder that was actually played</p>
+  <p class="subtitle">Chess puzzles with a twist</p>
 
-  <div class="demo-container">
-    <div class="board-wrapper">
-      <ChessBoard
-        bind:this={chessBoardRef}
-        fen={currentFen}
-        {orientation}
-        interactive={isAtLatest}
-        onMove={handleMove}
-      />
+  <div class="modes">
+    <a href="/blunder" class="mode-card">
+      <h2>Guess the Blunder</h2>
+      <p>Find the blunder that was actually played in a real game</p>
+    </a>
+
+    <div class="mode-card disabled">
+      <h2>Guess the Elo</h2>
+      <p>See the blunder and guess the players' rating</p>
+      <span class="coming-soon">Coming soon</span>
     </div>
 
-    <div class="controls">
-      <h3>Controls</h3>
-      <div class="button-group">
-        <button onclick={flipBoard}>Flip Board</button>
-        <button onclick={resetBoard}>Reset</button>
-        <button onclick={loadTestPosition}>Italian Game</button>
-        <button onclick={loadPuzzlePosition}>Puzzle Position</button>
-      </div>
-
-      <h3>Move History</h3>
-      <p class="hint">Use arrow keys to navigate</p>
-      <MoveHistory
-        moves={moveHistory}
-        {currentMoveIndex}
-        onNavigate={handleNavigate}
-      />
-
-      <h3>Current FEN</h3>
-      <code class="fen">{currentFen}</code>
+    <div class="mode-card disabled">
+      <h2>Elo Battle</h2>
+      <p>Compete with friends to guess the elo fastest</p>
+      <span class="coming-soon">Coming soon</span>
     </div>
   </div>
 </main>
@@ -135,96 +36,72 @@
   }
 
   main {
-    max-width: 1000px;
+    max-width: 800px;
     margin: 0 auto;
+    text-align: center;
+    padding-top: 2rem;
   }
 
   h1 {
-    text-align: center;
-    font-size: 2.5rem;
+    font-size: 3rem;
     margin-bottom: 0.5rem;
-    color: #fff;
   }
 
   .subtitle {
-    text-align: center;
     color: #888;
-    margin-bottom: 2rem;
+    font-size: 1.2rem;
+    margin-bottom: 3rem;
   }
 
-  .demo-container {
+  .modes {
     display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .board-wrapper {
-    width: 100%;
-    max-width: 480px;
-  }
-
-  .controls {
-    flex: 1;
-    min-width: 280px;
+    flex-direction: column;
+    gap: 1rem;
     max-width: 400px;
+    margin: 0 auto;
   }
 
-  h3 {
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
+  .mode-card {
+    background: #2a2a4a;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-decoration: none;
+    color: inherit;
+    text-align: left;
+    transition: transform 0.15s, background 0.15s;
+    position: relative;
+  }
+
+  .mode-card:not(.disabled):hover {
+    background: #3a3a5a;
+    transform: translateY(-2px);
+  }
+
+  .mode-card.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .mode-card h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.3rem;
+  }
+
+  .mode-card p {
+    margin: 0;
     color: #aaa;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+  }
+
+  .coming-soon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #4a4a6a;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-  }
-
-  .button-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  button {
-    padding: 0.6rem 1rem;
-    border: none;
-    border-radius: 6px;
-    background: #3a3a5a;
-    color: #fff;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.2s;
-  }
-
-  button:hover {
-    background: #4a4a7a;
-  }
-
-  .hint {
-    font-size: 0.75rem;
-    color: #666;
-    margin: 0 0 0.5rem 0;
-  }
-
-  .fen {
-    display: block;
-    padding: 1rem;
-    background: #2a2a4a;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    word-break: break-all;
-    color: #8f8;
-  }
-
-  @media (max-width: 768px) {
-    .demo-container {
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .controls {
-      width: 100%;
-      max-width: 480px;
-    }
   }
 </style>

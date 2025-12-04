@@ -2,35 +2,31 @@
  * BlunderRush Type Definitions
  */
 
-export interface Puzzle {
-  id: string;
-  fen: string; // Position AFTER the blunder
-  moves: string[]; // Solution moves (UCI format)
-  rating: number;
-  themes: string[];
-  gameUrl: string;
-  popularity?: number;
-  suitabilityScore?: number;
-  upvotes?: number;
-  downvotes?: number;
-  playCount?: number;
-  solveCount?: number;
-}
+// Re-export from lichess.ts for convenience
+export type { ProcessedPuzzle } from './lichess';
 
 export interface PuzzleState {
   puzzleId: string;
-  initialFen: string; // Position BEFORE the blunder (flipped turn)
-  targetFen: string; // Position AFTER the blunder (what we're trying to match)
-  targetMove: string; // The historical blunder move (UCI format)
+  // Position BEFORE the blunder - what we show to the user
+  initialFen: string;
+  // Position AFTER the blunder - what we're trying to match
+  targetFen: string;
+  // The historical blunder move (UCI format)
+  blunderMove: string;
+  // The winning response after the blunder
+  solution: string[];
+  // Current board position
   currentFen: string;
-  moveHistory: string[]; // UCI moves made so far
+  // Wrong guesses made by the user
   wrongGuesses: GuessEvaluation[];
-  evaluations: {
-    initial: number;
-    target: number;
-  };
-  solved: boolean;
+  // Puzzle metadata
+  rating: number;
+  themes: string[];
   gameUrl: string;
+  // Puzzle status
+  solved: boolean;
+  failed: boolean;
+  attempts: number;
 }
 
 export interface GuessEvaluation {

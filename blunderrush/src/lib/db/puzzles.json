@@ -1,0 +1,171 @@
+[
+  {
+    "id": "sample001",
+    "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
+    "moves": [
+      "h5f7"
+    ],
+    "rating": 800,
+    "themes": [
+      "mate",
+      "mateIn1",
+      "short"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 100,
+    "nbPlays": 1000
+  },
+  {
+    "id": "sample002",
+    "fen": "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2",
+    "moves": [
+      "d8h4"
+    ],
+    "rating": 600,
+    "themes": [
+      "mate",
+      "mateIn1",
+      "short"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 100,
+    "nbPlays": 1000
+  },
+  {
+    "id": "sample003",
+    "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+    "moves": [
+      "f3g5",
+      "d7d5",
+      "e4d5",
+      "f6d5",
+      "g5f7"
+    ],
+    "rating": 1200,
+    "themes": [
+      "fork",
+      "middlegame"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 90,
+    "nbPlays": 500
+  },
+  {
+    "id": "sample004",
+    "fen": "r2qk2r/ppp2ppp/2n1bn2/3pp3/2B1P1b1/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 0 7",
+    "moves": [
+      "c4f7",
+      "e8f7",
+      "f3g5",
+      "f7g8",
+      "d1b3"
+    ],
+    "rating": 1400,
+    "themes": [
+      "sacrifice",
+      "attack"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 85,
+    "nbPlays": 300
+  },
+  {
+    "id": "sample005",
+    "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
+    "moves": [
+      "f1b5"
+    ],
+    "rating": 1100,
+    "themes": [
+      "opening",
+      "pin"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 95,
+    "nbPlays": 800
+  },
+  {
+    "id": "sample006",
+    "fen": "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2",
+    "moves": [
+      "e4e5",
+      "f6d5",
+      "d2d4"
+    ],
+    "rating": 1000,
+    "themes": [
+      "opening",
+      "pawnCenter"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 88,
+    "nbPlays": 600
+  },
+  {
+    "id": "sample007",
+    "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+    "moves": [
+      "f8c5"
+    ],
+    "rating": 1050,
+    "themes": [
+      "opening",
+      "development"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 92,
+    "nbPlays": 700
+  },
+  {
+    "id": "sample008",
+    "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 5",
+    "moves": [
+      "c1g5",
+      "h7h6",
+      "g5f6",
+      "d8f6"
+    ],
+    "rating": 1300,
+    "themes": [
+      "pin",
+      "middlegame"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 80,
+    "nbPlays": 400
+  },
+  {
+    "id": "sample009",
+    "fen": "rnbqkbnr/ppp2ppp/8/3pp3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq d6 0 3",
+    "moves": [
+      "f3e5",
+      "d5e4",
+      "e5c6"
+    ],
+    "rating": 1150,
+    "themes": [
+      "fork",
+      "opening"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 75,
+    "nbPlays": 350
+  },
+  {
+    "id": "sample010",
+    "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/4P3/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 4 4",
+    "moves": [
+      "d2d4",
+      "e5d4",
+      "f3d4"
+    ],
+    "rating": 1100,
+    "themes": [
+      "opening",
+      "center"
+    ],
+    "gameUrl": "https://lichess.org/sample",
+    "popularity": 85,
+    "nbPlays": 450
+  }
+]
