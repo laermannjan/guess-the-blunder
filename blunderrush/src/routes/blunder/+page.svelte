@@ -32,11 +32,11 @@
 
 <style>
   :global(body) {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Berkeley Mono', 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
     margin: 0;
     padding: 20px;
-    background: #1a1a2e;
-    color: #eee;
+    background: #161512;
+    color: #bababa;
     min-height: 100vh;
   }
 
@@ -48,30 +48,35 @@
 
   h1 {
     margin-bottom: 2rem;
+    color: #fff;
+    font-weight: 500;
   }
 
   .loading {
     padding: 2rem;
-    color: #888;
+    color: #787672;
   }
 
   .error {
-    color: #ff6b6b;
+    color: #e06c6c;
     padding: 2rem;
   }
 
   button {
-    padding: 0.6rem 1.2rem;
-    border: none;
-    border-radius: 6px;
-    background: #3a3a5a;
-    color: #fff;
+    padding: 0.5rem 1rem;
+    border: 1px solid #3d3a37;
+    border-radius: 2px;
+    background: #2b2926;
+    color: #bababa;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    font-family: inherit;
     margin-top: 1rem;
+    transition: background 0.1s, border-color 0.1s;
   }
 
   button:hover {
-    background: #4a4a7a;
+    background: #3d3a37;
+    border-color: #4d4a47;
   }
 </style>

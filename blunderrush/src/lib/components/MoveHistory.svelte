@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { browser } from '$app/environment';
 
   interface MoveEntry {
@@ -12,8 +12,20 @@
   let {
     moves = [] as MoveEntry[],
     currentMoveIndex = -1,  // -1 means at starting position, 0 = first move, etc.
+    puzzleStartIndex = -1,  // Index of the move where the puzzle starts (to highlight with red outline)
     onNavigate = undefined as ((index: number) => void) | undefined,
   } = $props();
+
+  let containerRef: HTMLDivElement;
+
+  // Auto-scroll to bottom when moves change or on mount
+  $effect(() => {
+    if (moves.length > 0 && containerRef) {
+      tick().then(() => {
+        containerRef.scrollTop = containerRef.scrollHeight;
+      });
+    }
+  });
 
   // Group moves into full moves (white + black)
   let groupedMoves = $derived.by(() => {
@@ -70,33 +82,31 @@
   }
 </script>
 
-<div class="move-history" tabindex="0">
+<div class="move-history" role="grid" aria-label="Game moves" bind:this={containerRef}>
   {#if moves.length === 0}
-    <p class="placeholder">Make a move to see history...</p>
+    <p class="placeholder">No moves yet...</p>
   {:else}
     {#each groupedMoves as group}
       <div class="move-row">
-        <span class="move-number">{group.moveNumber}.</span>
-        {#if group.white}
-          <button
-            class="move white"
-            class:active={currentMoveIndex === group.whiteIndex}
-            onclick={() => handleMoveClick(group.whiteIndex)}
-          >
-            {group.white.san}
-          </button>
-        {:else}
-          <span class="move empty">...</span>
-        {/if}
-        {#if group.black}
-          <button
-            class="move black"
-            class:active={currentMoveIndex === group.blackIndex}
-            onclick={() => handleMoveClick(group.blackIndex)}
-          >
-            {group.black.san}
-          </button>
-        {/if}
+        <span class="move-number">{group.moveNumber}</span>
+        <button
+          class="move white-move"
+          class:active={currentMoveIndex === group.whiteIndex}
+          class:puzzle-start={puzzleStartIndex === group.whiteIndex}
+          onclick={() => handleMoveClick(group.whiteIndex)}
+          disabled={group.whiteIndex === -1}
+        >
+          {group.white?.san ?? ''}
+        </button>
+        <button
+          class="move black-move"
+          class:active={currentMoveIndex === group.blackIndex}
+          class:puzzle-start={puzzleStartIndex === group.blackIndex}
+          onclick={() => handleMoveClick(group.blackIndex)}
+          disabled={group.blackIndex === -1}
+        >
+          {group.black?.san ?? ''}
+        </button>
       </div>
     {/each}
   {/if}
@@ -104,17 +114,10 @@
 
 <style>
   .move-history {
-    padding: 0.75rem;
-    background: #302e2c;
+    background: #2b2926;
     border-radius: 4px;
-    min-height: 60px;
-    max-height: 300px;
     overflow-y: auto;
-    outline: none;
-  }
-
-  .move-history:focus {
-    box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.5);
+    overflow-x: hidden;
   }
 
   .placeholder {
@@ -127,65 +130,71 @@
 
   .move-row {
     display: flex;
-    align-items: center;
-    margin-bottom: 2px;
+    align-items: stretch;
+  }
+
+  .move-row:nth-child(odd) {
+    background: #2b2926;
+  }
+
+  .move-row:nth-child(even) {
+    background: #262421;
   }
 
   .move-number {
-    color: #999;
-    font-size: 0.85rem;
-    width: 28px;
+    background: #1f1d1b;
+    color: #5c5955;
+    font-size: 0.75rem;
+    width: 32px;
     flex-shrink: 0;
-    text-align: right;
-    padding-right: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0;
+    font-family: 'Berkeley Mono', 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
   }
 
   .move {
-    font-family: inherit;
-    font-size: 0.9rem;
-    padding: 3px 8px;
+    font-family: 'Berkeley Mono', 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 0.85rem;
+    padding: 5px 8px;
     border: none;
-    border-radius: 3px;
     cursor: pointer;
-    min-width: 50px;
-    text-align: center;
+    flex: 1;
+    text-align: left;
     transition: background-color 0.1s;
-  }
-
-  .move.white {
-    background: #dad5d0;
-    color: #1a1a1a;
-    margin-right: 4px;
-  }
-
-  .move.white:hover {
-    background: #eae5e0;
-  }
-
-  .move.white.active {
-    background: #b0b0b0;
-    color: #000;
-  }
-
-  .move.black {
-    background: #4a4a4a;
-    color: #e0e0e0;
-  }
-
-  .move.black:hover {
-    background: #5a5a5a;
-  }
-
-  .move.black.active {
-    background: #666666;
-    color: #fff;
-  }
-
-  .move.empty {
+    color: #bababa;
     background: transparent;
-    color: #666;
+  }
+
+  .move:disabled {
     cursor: default;
-    min-width: 50px;
-    margin-right: 4px;
+  }
+
+  .move:not(:disabled):hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .move.white-move {
+    border-right: 1px solid #1a1917;
+  }
+
+  .move.active {
+    background: #3692e7;
+    color: #fff;
+    font-weight: bold;
+  }
+
+  .move.active:hover {
+    background: #3692e7;
+  }
+
+  .move.puzzle-start {
+    outline: 2px solid rgba(220, 90, 90, 0.6);
+    outline-offset: -2px;
+  }
+
+  .move.puzzle-start.active {
+    outline-color: rgba(220, 90, 90, 0.8);
   }
 </style>

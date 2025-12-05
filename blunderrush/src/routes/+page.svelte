@@ -27,11 +27,11 @@
 
 <style>
   :global(body) {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Berkeley Mono', 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
     margin: 0;
     padding: 20px;
-    background: #1a1a2e;
-    color: #eee;
+    background: #161512;
+    color: #bababa;
     min-height: 100vh;
   }
 
@@ -43,65 +43,72 @@
   }
 
   h1 {
-    font-size: 3rem;
+    font-size: 2.5rem;
     margin-bottom: 0.5rem;
+    color: #fff;
+    font-weight: 500;
   }
 
   .subtitle {
-    color: #888;
-    font-size: 1.2rem;
+    color: #787672;
+    font-size: 1rem;
     margin-bottom: 3rem;
   }
 
   .modes {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     max-width: 400px;
     margin: 0 auto;
   }
 
   .mode-card {
-    background: #2a2a4a;
-    padding: 1.5rem;
-    border-radius: 12px;
+    background: #262421;
+    padding: 1.25rem;
+    border-radius: 3px;
     text-decoration: none;
     color: inherit;
     text-align: left;
-    transition: transform 0.15s, background 0.15s;
+    transition: background 0.1s;
     position: relative;
+    border: 1px solid #3d3a37;
   }
 
   .mode-card:not(.disabled):hover {
-    background: #3a3a5a;
-    transform: translateY(-2px);
+    background: #2b2926;
+    border-color: #4d4a47;
   }
 
   .mode-card.disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
   .mode-card h2 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.3rem;
+    margin: 0 0 0.375rem 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #fff;
   }
 
   .mode-card p {
     margin: 0;
-    color: #aaa;
-    font-size: 0.95rem;
+    color: #787672;
+    font-size: 0.85rem;
   }
 
   .coming-soon {
     position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: #4a4a6a;
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
+    top: 0.875rem;
+    right: 0.875rem;
+    background: #2b2926;
+    border: 1px solid #3d3a37;
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+    font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    color: #787672;
   }
 </style>

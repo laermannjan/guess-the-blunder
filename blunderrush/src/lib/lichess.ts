@@ -33,6 +33,14 @@ export interface LichessPuzzleResponse {
   };
 }
 
+export interface GameMove {
+  san: string;
+  fen: string;
+  color: 'white' | 'black';
+  from: string;
+  to: string;
+}
+
 export interface ProcessedPuzzle {
   id: string;
   // The position AFTER the blunder was played (this is what Lichess gives us)
@@ -62,6 +70,8 @@ export interface ProcessedPuzzle {
     to: string;
     san: string;
   } | null;
+  // Game moves leading up to (but not including) the blunder
+  gameMoves: GameMove[];
   // Raw API response for debugging
   rawResponse: LichessPuzzleResponse;
 }
@@ -146,12 +156,25 @@ export function processLichessPuzzle(response: LichessPuzzleResponse): Processed
   // Track the opponent's last move (second-to-last move in PGN)
   let opponentLastMove: { from: string; to: string; san: string } | null = null;
 
+  // Track all game moves for the move explorer
+  const gameMoves: GameMove[] = [];
+
   for (let i = 0; i < pgnMoves.length - 1; i++) {
     const move = chess.move(pgnMoves[i]);
     if (!move) {
       console.error(`Invalid move in PGN: ${pgnMoves[i]} at index ${i}`);
       break;
     }
+
+    // Add to game moves
+    gameMoves.push({
+      san: move.san,
+      fen: chess.fen(),
+      color: move.color === 'w' ? 'white' : 'black',
+      from: move.from,
+      to: move.to,
+    });
+
     // The second-to-last move is the opponent's last move before the blunder
     if (i === pgnMoves.length - 2) {
       opponentLastMove = {
@@ -220,6 +243,7 @@ export function processLichessPuzzle(response: LichessPuzzleResponse): Processed
     gameRating,
     gameType: game.perf.name,
     opponentLastMove,
+    gameMoves,
     rawResponse: response,
   };
 }
