@@ -15,6 +15,7 @@
     onMove = undefined as ((move: { from: string; to: string; promotion?: string; uci: string; san: string; fen: string; color: 'white' | 'black' }) => void) | undefined,
     lastMove = undefined as { from: string; to: string } | undefined,
     lastMoveColor = 'green' as 'green' | 'red', // green for normal, red for opponent's last move
+    highlightSquare = undefined as string | undefined, // square to highlight (e.g., "e4")
   } = $props();
 
   // Internal state
@@ -51,6 +52,22 @@
   $effect(() => {
     if (ground) {
       ground.set({ orientation });
+    }
+  });
+
+  // Update highlight square when it changes - we use a CSS class approach
+  $effect(() => {
+    if (boardEl && highlightSquare) {
+      // Remove any existing hint highlight
+      boardEl.querySelectorAll('.hint-highlight').forEach(el => el.remove());
+
+      // Add a highlight div for the hint square
+      const square = document.createElement('div');
+      square.className = 'hint-highlight';
+      square.dataset.square = highlightSquare;
+      boardEl.querySelector('cg-container')?.appendChild(square);
+    } else if (boardEl) {
+      boardEl.querySelectorAll('.hint-highlight').forEach(el => el.remove());
     }
   });
 
@@ -183,7 +200,7 @@
   }
 </script>
 
-<div class="board-container" class:red-last-move={lastMoveColor === 'red'}>
+<div class="board-container" class:red-last-move={lastMoveColor === 'red'} class:flipped={orientation === 'black'}>
   <div class="board" bind:this={boardEl}></div>
 </div>
 
@@ -296,6 +313,54 @@
   :global(cg-board square.check) {
     background: radial-gradient(ellipse at center, rgba(255, 0, 0, 1) 0%, rgba(231, 0, 0, 1) 25%, rgba(169, 0, 0, 0) 89%, rgba(158, 0, 0, 0) 100%);
   }
+
+  /* Hint highlight - green like Lichess */
+  :global(.hint-highlight) {
+    position: absolute;
+    width: 12.5%;
+    height: 12.5%;
+    background-color: rgba(21, 120, 27, 0.7);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Position hint highlight based on data-square attribute */
+  :global(.hint-highlight[data-square^="a"]) { left: 0%; }
+  :global(.hint-highlight[data-square^="b"]) { left: 12.5%; }
+  :global(.hint-highlight[data-square^="c"]) { left: 25%; }
+  :global(.hint-highlight[data-square^="d"]) { left: 37.5%; }
+  :global(.hint-highlight[data-square^="e"]) { left: 50%; }
+  :global(.hint-highlight[data-square^="f"]) { left: 62.5%; }
+  :global(.hint-highlight[data-square^="g"]) { left: 75%; }
+  :global(.hint-highlight[data-square^="h"]) { left: 87.5%; }
+
+  :global(.hint-highlight[data-square$="1"]) { top: 87.5%; }
+  :global(.hint-highlight[data-square$="2"]) { top: 75%; }
+  :global(.hint-highlight[data-square$="3"]) { top: 62.5%; }
+  :global(.hint-highlight[data-square$="4"]) { top: 50%; }
+  :global(.hint-highlight[data-square$="5"]) { top: 37.5%; }
+  :global(.hint-highlight[data-square$="6"]) { top: 25%; }
+  :global(.hint-highlight[data-square$="7"]) { top: 12.5%; }
+  :global(.hint-highlight[data-square$="8"]) { top: 0%; }
+
+  /* Flip positions when board is flipped (black orientation) */
+  .board-container.flipped :global(.hint-highlight[data-square^="a"]) { left: 87.5%; }
+  .board-container.flipped :global(.hint-highlight[data-square^="b"]) { left: 75%; }
+  .board-container.flipped :global(.hint-highlight[data-square^="c"]) { left: 62.5%; }
+  .board-container.flipped :global(.hint-highlight[data-square^="d"]) { left: 50%; }
+  .board-container.flipped :global(.hint-highlight[data-square^="e"]) { left: 37.5%; }
+  .board-container.flipped :global(.hint-highlight[data-square^="f"]) { left: 25%; }
+  .board-container.flipped :global(.hint-highlight[data-square^="g"]) { left: 12.5%; }
+  .board-container.flipped :global(.hint-highlight[data-square^="h"]) { left: 0%; }
+
+  .board-container.flipped :global(.hint-highlight[data-square$="1"]) { top: 0%; }
+  .board-container.flipped :global(.hint-highlight[data-square$="2"]) { top: 12.5%; }
+  .board-container.flipped :global(.hint-highlight[data-square$="3"]) { top: 25%; }
+  .board-container.flipped :global(.hint-highlight[data-square$="4"]) { top: 37.5%; }
+  .board-container.flipped :global(.hint-highlight[data-square$="5"]) { top: 50%; }
+  .board-container.flipped :global(.hint-highlight[data-square$="6"]) { top: 62.5%; }
+  .board-container.flipped :global(.hint-highlight[data-square$="7"]) { top: 75%; }
+  .board-container.flipped :global(.hint-highlight[data-square$="8"]) { top: 87.5%; }
 
   /* Piece images using Lichess CBurnett set via data URIs */
   :global(cg-board piece.white.pawn) {

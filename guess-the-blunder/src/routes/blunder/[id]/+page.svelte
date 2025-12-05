@@ -35,7 +35,13 @@
   let currentMoveIndex = $state(-1);
   let viewingHistory = $state(false);
 
+  // Hint state
+  let hintUsed = $state(false);
+
   let chessBoardRef: ChessBoard;
+
+  // Get the blunder source square from the UCI move
+  const blunderSquare = $derived(puzzle ? puzzle.blunderUci.slice(0, 2) : null);
 
   // Get puzzle ID from URL
   const puzzleId = $derived($page.params.id!);
@@ -54,6 +60,7 @@
     blunderEval = null;
     currentMoveIndex = -1;
     viewingHistory = false;
+    hintUsed = false;
 
     try {
       puzzle = await getBlunderPuzzleById(id);
@@ -205,11 +212,35 @@
     currentFen = puzzle.preFen;
     chessBoardRef?.setPosition(currentFen, puzzle.opponentLastMove ? { from: puzzle.opponentLastMove.from, to: puzzle.opponentLastMove.to } : undefined);
   }
+
+  function useHint() {
+    hintUsed = true;
+  }
+
+  function revealSolution() {
+    if (!puzzle) return;
+    solved = true;
+    lastGuessSan = puzzle.blunderSan;
+    currentFen = puzzle.fen;
+    chessBoardRef?.setPosition(puzzle.fen);
+  }
 </script>
 
 <main>
-  <h1>Guess the Blunder</h1>
-  <p class="subtitle">Find the blunder that was actually played in the game!</p>
+  <header class="page-header">
+    <h1>Guess the Blunder</h1>
+    {#if puzzle && !solved}
+      <p class="task-info">
+        <strong>{getTurnFromFen(puzzle.preFen)}</strong> to move. Find the blunder that was played!
+      </p>
+    {:else if puzzle && solved}
+      <p class="task-info success">
+        Correct! You found the blunder: <strong>{lastGuessSan}</strong>
+      </p>
+    {:else}
+      <p class="task-info">Find the blunder that was actually played in the game!</p>
+    {/if}
+  </header>
 
   {#if loading}
     <div class="loading">Loading puzzle...</div>
@@ -220,11 +251,35 @@
     </div>
   {:else if puzzle}
     <div class="puzzle-container">
-      <div class="board-section">
-        <div class="game-rating">
-          <span class="rating-label">{puzzle.gameType}</span>
-          <span class="rating-value">~{puzzle.gameRating}</span>
+      <div class="meta-panel">
+        <div class="meta-item puzzle-info">
+          <div class="meta-row">
+            <span class="meta-label">Puzzle</span>
+            <a href={puzzle.puzzleUrl} target="_blank" rel="noopener" class="puzzle-id">#{puzzle.id}</a>
+          </div>
+          <div class="meta-row">
+            <span class="meta-label">Rating</span>
+            <span class="meta-value">{puzzle.rating}</span>
+          </div>
         </div>
+        <div class="meta-item game-info">
+          <div class="meta-row">
+            <span class="meta-label">Mode</span>
+            <span class="meta-value">{puzzle.gameType}{#if puzzle.rawResponse.game.clock} ({puzzle.rawResponse.game.clock}){/if}</span>
+          </div>
+          <div class="players">
+            {#each [...puzzle.rawResponse.game.players].sort((a, b) => a.color === 'white' ? -1 : 1) as player}
+              <div class="player">
+                <span class="player-color {player.color}"></span>
+                <span class="meta-value">{player.name}</span>
+                <span class="meta-label">{player.rating}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      </div>
+
+      <div class="board-section">
         <ChessBoard
           bind:this={chessBoardRef}
           fen={currentFen}
@@ -233,71 +288,11 @@
           onMove={handleMove}
           lastMove={puzzle.opponentLastMove ? { from: puzzle.opponentLastMove.from, to: puzzle.opponentLastMove.to } : undefined}
           lastMoveColor="red"
+          highlightSquare={hintUsed && !solved ? blunderSquare : undefined}
         />
       </div>
 
       <div class="info-section">
-        <div class="task">
-          <h3>Your Task</h3>
-          {#if !solved}
-            <p class="instruction">
-              <strong>{getTurnFromFen(puzzle.preFen)}</strong> to move.
-              Find the blunder that was played in the actual game!
-            </p>
-          {:else}
-            <p class="success">
-              Correct! You found the blunder: <strong>{lastGuessSan}</strong>
-            </p>
-          {/if}
-        </div>
-
-        <div class="feedback">
-          {#if evaluating}
-            <p class="evaluating">Analyzing your move...</p>
-          {:else if feedbackMessage && !solved}
-            <p class="wrong">
-              <strong>{lastGuessSan}</strong> - {feedbackMessage}
-            </p>
-          {/if}
-          <p class="attempts">Attempts: {attempts}</p>
-        </div>
-
-        {#if solved}
-          <div class="solution-section">
-            {#if !showSolution}
-              <button class="solution-btn" onclick={startSolution}>
-                Show why it's bad
-              </button>
-            {:else}
-              <p class="solution-info">
-                {#if playingSolution}
-                  Playing the punishment...
-                {:else}
-                  The opponent's winning response: {puzzle.solutionSan.join(' ')}
-                {/if}
-              </p>
-            {/if}
-          </div>
-        {/if}
-
-        <div class="actions">
-          <button onclick={loadRandomPuzzle}>
-            {solved ? 'Next Puzzle' : 'Skip Puzzle'}
-          </button>
-        </div>
-
-        <div class="puzzle-meta">
-          <p>
-            <a href={puzzle.puzzleUrl} target="_blank" rel="noopener">
-              View on Lichess
-            </a>
-            &middot;
-            <a href={puzzle.gameUrl} target="_blank" rel="noopener">
-              Original game
-            </a>
-          </p>
-        </div>
-
         <div class="move-explorer">
           <div class="move-explorer-header">
             <h3>Game Moves</h3>
@@ -313,6 +308,52 @@
             puzzleStartIndex={puzzle.gameMoves.length - 1}
             onNavigate={handleHistoryNavigate}
           />
+        </div>
+
+        <div class="feedback-section">
+          <div class="feedback-header">
+            <span class="attempts-label">Attempt {attempts}</span>
+          </div>
+          <div class="feedback-box">
+            {#if evaluating}
+              <p class="evaluating">Analyzing your move...</p>
+            {:else if solved}
+              <p class="success-msg">
+                Correct! <strong>{lastGuessSan}</strong> was the blunder.
+              </p>
+              {#if !showSolution}
+                <button class="solution-btn" onclick={startSolution}>
+                  Show why it's bad
+                </button>
+              {:else}
+                <p class="solution-info">
+                  {#if playingSolution}
+                    Playing the punishment...
+                  {:else}
+                    Opponent's response: {puzzle.solutionSan.join(' ')}
+                  {/if}
+                </p>
+              {/if}
+            {:else if feedbackMessage}
+              <p class="wrong-msg">
+                <strong>{lastGuessSan}</strong> - {feedbackMessage}
+              </p>
+            {:else}
+              <p class="waiting-msg">Make a move to guess the blunder</p>
+            {/if}
+          </div>
+          <div class="button-row">
+            {#if !solved}
+              {#if !hintUsed}
+                <button class="hint-btn" onclick={useHint}>Hint</button>
+              {:else}
+                <button class="hint-btn" onclick={revealSolution}>Show Answer</button>
+              {/if}
+            {/if}
+            <button class="skip-btn" onclick={() => loadRandomPuzzle()}>
+              {solved ? 'Next Puzzle' : 'Skip'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -334,17 +375,29 @@
     margin: 0 auto;
   }
 
-  h1 {
+  .page-header {
     text-align: center;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  h1 {
+    margin-bottom: 0.25rem;
     color: #fff;
     font-weight: 500;
   }
 
-  .subtitle {
-    text-align: center;
+  .task-info {
     color: #787672;
-    margin-bottom: 2rem;
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .task-info.success {
+    color: #81b64c;
+  }
+
+  .task-info strong {
+    color: #bababa;
   }
 
   .loading, .error {
@@ -357,44 +410,123 @@
   }
 
   .puzzle-container {
+    display: grid;
+    grid-template-columns: 1fr minmax(300px, 480px) 1fr;
+    gap: 1rem;
+    align-items: start;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    .puzzle-container {
+      grid-template-columns: 1fr;
+      max-width: 480px;
+    }
+    .meta-panel {
+      order: -1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+    .meta-panel .meta-item {
+      flex: 1;
+      min-width: 140px;
+    }
+  }
+
+  .meta-panel {
     display: flex;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .meta-item {
+    background: #262421;
+    padding: 0.5rem 0.625rem;
+    border-radius: 2px;
+  }
+
+  .puzzle-info, .game-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8rem;
+  }
+
+  .meta-label {
+    color: #787672;
+  }
+
+  .meta-value {
+    color: #bababa;
+  }
+
+  .puzzle-id {
+    color: #6c9ce0;
+    text-decoration: none;
+  }
+
+  .puzzle-id:hover {
+    text-decoration: underline;
+  }
+
+  .players {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+  }
+
+  .player {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8rem;
+    overflow: hidden;
+  }
+
+  .player .meta-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .player .meta-label {
+    flex-shrink: 0;
+  }
+
+  .player-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 1px;
+    flex-shrink: 0;
+  }
+
+  .player-color.white {
+    background: #fff;
+    border: 1px solid #3d3a37;
+  }
+
+  .player-color.black {
+    background: #000;
   }
 
   .board-section {
     width: 100%;
-    max-width: 480px;
-  }
-
-  .game-rating {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #262421;
-    padding: 0.5rem 0.75rem;
-    border-radius: 3px 3px 0 0;
-    margin-bottom: -1px;
-  }
-
-  .rating-label {
-    color: #787672;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .rating-value {
-    color: #bababa;
-    font-weight: 600;
-    font-size: 0.95rem;
   }
 
   .info-section {
-    flex: 1;
-    min-width: 280px;
-    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
   }
 
   h3 {
@@ -407,43 +539,50 @@
     font-weight: 500;
   }
 
-  .task {
-    background: #262421;
-    padding: 0.875rem;
-    border-radius: 3px;
-    margin-bottom: 0.75rem;
+  .feedback-section {
+    display: flex;
+    flex-direction: column;
   }
 
-  .instruction {
+  .feedback-header {
+    margin-bottom: 0.25rem;
+  }
+
+  .attempts-label {
+    color: #787672;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .feedback-box {
+    background: #262421;
+    padding: 0.75rem;
+    border-radius: 2px 2px 0 0;
+    min-height: 3rem;
+  }
+
+  .feedback-box p {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     line-height: 1.4;
   }
 
-  .success {
-    margin: 0;
-    color: #7fbd6a;
-    font-size: 0.95rem;
+  .waiting-msg {
+    color: #787672;
   }
 
-  .feedback {
-    margin-bottom: 0.75rem;
+  .success-msg {
+    color: #81b64c;
+    margin-bottom: 0.5rem !important;
   }
 
-  .wrong {
+  .wrong-msg {
     color: #e06c6c;
-    background: #2b2220;
-    padding: 0.5rem 0.75rem;
-    border-radius: 2px;
-    border-left: 2px solid #e06c6c;
   }
 
   .evaluating {
     color: #6c9ce0;
-    background: #202028;
-    padding: 0.5rem 0.75rem;
-    border-radius: 2px;
-    border-left: 2px solid #6c9ce0;
     animation: pulse 1s infinite;
   }
 
@@ -452,18 +591,10 @@
     50% { opacity: 0.5; }
   }
 
-  .attempts {
-    color: #787672;
-    font-size: 0.8rem;
-  }
-
-  .solution-section {
-    margin-bottom: 0.75rem;
-  }
-
   .solution-btn {
     width: 100%;
-    padding: 0.625rem;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
     background: #2b2926;
     color: #bababa;
     border: 1px solid #3d3a37;
@@ -480,15 +611,56 @@
   }
 
   .solution-info {
-    background: #2b2926;
-    padding: 0.75rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
     border-radius: 2px;
     border-left: 2px solid #3692e7;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    background: #1e1d1b;
   }
 
-  .actions {
-    margin-bottom: 0.75rem;
+  .button-row {
+    display: flex;
+    gap: 0;
+  }
+
+  .hint-btn {
+    flex: 1;
+    padding: 0.625rem;
+    background: #2b2926;
+    color: #bababa;
+    border: none;
+    border-right: 1px solid #1e1d1b;
+    border-radius: 0 0 0 2px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: background 0.1s;
+  }
+
+  .hint-btn:hover {
+    background: #3d3a37;
+  }
+
+  .skip-btn {
+    flex: 1;
+    padding: 0.625rem;
+    background: #3d3a37;
+    color: #bababa;
+    border: none;
+    border-radius: 0 0 2px 0;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: background 0.1s;
+  }
+
+  .button-row .skip-btn:only-child {
+    border-radius: 0 0 2px 2px;
+  }
+
+  .skip-btn:hover {
+    background: #4d4a47;
   }
 
   button {
@@ -508,22 +680,7 @@
     border-color: #4d4a47;
   }
 
-  .puzzle-meta {
-    color: #5c5955;
-    font-size: 0.8rem;
-  }
-
-  .puzzle-meta a {
-    color: #6c9c6c;
-    text-decoration: none;
-  }
-
-  .puzzle-meta a:hover {
-    text-decoration: underline;
-  }
-
   .move-explorer {
-    margin-top: 0.75rem;
     display: flex;
     flex-direction: column;
     max-height: 300px;
@@ -562,6 +719,25 @@
 
   .return-btn:hover {
     background: #3a4a3a;
+  }
+
+  @media (max-width: 900px) {
+    .meta-panel {
+      flex-direction: row;
+      flex-wrap: wrap;
+      max-width: 100%;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .meta-item {
+      flex: 0 0 auto;
+    }
+
+    .meta-item.players {
+      flex-direction: row;
+      gap: 1rem;
+    }
   }
 
   @media (max-width: 768px) {
