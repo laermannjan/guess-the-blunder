@@ -71,7 +71,7 @@
     }
   });
 
-  onMount(() => {
+  function initChessground() {
     chess = new Chess(fen);
     const legalMoves = getLegalMoves(chess);
     const turn = getTurnFromFen(fen);
@@ -105,6 +105,12 @@
       premovable: {
         enabled: false,
       },
+      drawable: {
+        enabled: true,
+        visible: true,
+        defaultSnapToValidMove: false,
+        eraseOnClick: true,
+      },
       events: {
         move: (orig: Key, dest: Key) => {
           handleMove(orig as string, dest as string);
@@ -113,13 +119,7 @@
     };
 
     ground = Chessground(boardEl, config);
-  });
-
-  onDestroy(() => {
-    if (ground) {
-      ground.destroy();
-    }
-  });
+  }
 
   function handleMove(from: string, to: string) {
     // Check if this is a promotion
@@ -198,9 +198,23 @@
   export function getFen(): string {
     return chess.fen();
   }
+
+  onMount(() => {
+    initChessground();
+  });
+
+  onDestroy(() => {
+    if (ground) {
+      ground.destroy();
+    }
+  });
 </script>
 
-<div class="board-container" class:red-last-move={lastMoveColor === 'red'} class:flipped={orientation === 'black'}>
+<div
+  class="board-container"
+  class:red-last-move={lastMoveColor === 'red'}
+  class:flipped={orientation === 'black'}
+>
   <div class="board" bind:this={boardEl}></div>
 </div>
 
@@ -209,6 +223,7 @@
     width: 100%;
     max-width: 560px;
     aspect-ratio: 1;
+    position: relative;
   }
 
   .board {
@@ -409,5 +424,19 @@
 
   :global(cg-board piece.black.king) {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='45' height='45'%3E%3Cg fill='none' fill-rule='evenodd' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22.5 11.63V6' stroke-linejoin='miter'/%3E%3Cpath d='M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5' fill='%23000' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3Cpath d='M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z' fill='%23000'/%3E%3Cpath d='M20 8h5' stroke-linejoin='miter'/%3E%3Cpath d='M32 29.5s8.5-4 6.03-9.65C34.15 14 25 18 22.5 24.5l.01 2.1-.01-2.1C20 18 9.906 14 6.997 19.85c-2.497 5.65 4.853 9 4.853 9' stroke='%23fff'/%3E%3Cpath d='M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0' stroke='%23fff'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* Chessground drawable SVG positioning and styling */
+  :global(svg.cg-shapes),
+  :global(svg.cg-custom-svgs) {
+    overflow: visible;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.6;
+    z-index: 10;
   }
 </style>
