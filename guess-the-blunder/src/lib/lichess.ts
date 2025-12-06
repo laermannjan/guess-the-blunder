@@ -271,3 +271,28 @@ export async function getBlunderPuzzleById(id: string): Promise<ProcessedPuzzle>
   const response = await fetchPuzzleById(id);
   return processLichessPuzzle(response);
 }
+
+/**
+ * Get the blundering player's info from a puzzle
+ * The blundering player is the one whose turn it was at preFen
+ */
+export function getBlunderingPlayer(puzzle: ProcessedPuzzle): {
+  name: string;
+  rating: number;
+  color: 'white' | 'black';
+} {
+  // preFen has the turn indicator - 'w' or 'b' after the position
+  const turnFromFen = puzzle.preFen.split(' ')[1];
+  const blunderColor: 'white' | 'black' = turnFromFen === 'w' ? 'white' : 'black';
+
+  const player = puzzle.rawResponse.game.players.find(p => p.color === blunderColor);
+  if (!player) {
+    throw new Error('Could not find blundering player');
+  }
+
+  return {
+    name: player.name,
+    rating: player.rating,
+    color: blunderColor,
+  };
+}

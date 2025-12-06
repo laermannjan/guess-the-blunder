@@ -10,7 +10,7 @@
   import { evaluatePosition, getMoveFeedback, type EvalResult } from '$lib/stockfish';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
 
-  let puzzle: ProcessedPuzzle | null = $state(null);
+  let puzzle = $state<ProcessedPuzzle | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -38,10 +38,14 @@
   // Hint state
   let hintUsed = $state(false);
 
+  // Last move highlight state (tracks current last move to display)
+  let displayLastMove = $state<{ from: string; to: string } | null>(null);
+  let displayLastMoveColor = $state<'green' | 'red'>('red');
+
   let chessBoardRef: ChessBoard;
 
   // Get the blunder source square from the UCI move
-  const blunderSquare = $derived(puzzle ? puzzle.blunderUci.slice(0, 2) : null);
+  const blunderSquare = $derived(puzzle?.blunderUci?.slice(0, 2));
 
   // Get puzzle ID from URL
   const puzzleId = $derived($page.params.id!);
@@ -65,6 +69,12 @@
     try {
       puzzle = await getBlunderPuzzleById(id);
       currentFen = puzzle.preFen;
+
+      // Initialize last move display to opponent's last move
+      displayLastMove = puzzle.opponentLastMove
+        ? { from: puzzle.opponentLastMove.from, to: puzzle.opponentLastMove.to }
+        : null;
+      displayLastMoveColor = 'red';
 
       // Pre-evaluate the blunder position for comparison (in background)
       if (browser) {
@@ -115,8 +125,15 @@
       solved = true;
       lastGuessCorrect = true;
       currentFen = move.fen;
+      // Show the correct blunder move in green
+      displayLastMove = { from: move.from, to: move.to };
+      displayLastMoveColor = 'green';
     } else {
       lastGuessCorrect = false;
+
+      // Show the user's attempted move in green
+      displayLastMove = { from: move.from, to: move.to };
+      displayLastMoveColor = 'green';
 
       // Evaluate the wrong guess with Stockfish
       if (browser && blunderEval) {
@@ -138,6 +155,11 @@
       setTimeout(() => {
         currentFen = puzzle!.preFen;
         chessBoardRef?.setPosition(puzzle!.preFen);
+        // Reset to opponent's last move (red)
+        displayLastMove = puzzle!.opponentLastMove
+          ? { from: puzzle!.opponentLastMove.from, to: puzzle!.opponentLastMove.to }
+          : null;
+        displayLastMoveColor = 'red';
       }, 1500);
     }
   }
@@ -286,8 +308,8 @@
           orientation={getTurnFromFen(puzzle.preFen) === 'White' ? 'white' : 'black'}
           interactive={!solved && !playingSolution}
           onMove={handleMove}
-          lastMove={puzzle.opponentLastMove ? { from: puzzle.opponentLastMove.from, to: puzzle.opponentLastMove.to } : undefined}
-          lastMoveColor="red"
+          lastMove={displayLastMove ?? undefined}
+          lastMoveColor={displayLastMoveColor}
           highlightSquare={hintUsed && !solved ? blunderSquare : undefined}
         />
       </div>
