@@ -1,11 +1,12 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { browser } from '$app/environment';
   import ChessBoard from '$lib/components/ChessBoard.svelte';
   import MoveHistory from '$lib/components/MoveHistory.svelte';
   import { getBlunderPuzzleById, getRandomBlunderPuzzle, getBlunderingPlayer, type ProcessedPuzzle, type GameMove } from '$lib/lichess';
+  import { evaluatePosition, type EvalResult } from '$lib/stockfish';
   import { Chess } from 'chess.js';
 
   let puzzle = $state<ProcessedPuzzle | null>(null);
@@ -14,7 +15,7 @@
 
   // Game state
   let currentFen = $state('');
-  let phase = $state<'animating' | 'guessing' | 'revealed'>('animating');
+  let phase = $state<'animating' | 'guessing' | 'revealed' | 'findingBetterMove' | 'finalResult'>('animating');
 
   // Move tracking for explorer
   let allMoves = $state<GameMove[]>([]);
@@ -27,11 +28,20 @@
   let actualElo = $state(0);
   let difference = $state(0);
 
+  // Better move state
+  let bestMoveEval = $state<EvalResult | null>(null);
+  let userMoveEval = $state<EvalResult | null>(null);
+  let userMoveSan = $state<string | null>(null);
+  let bestMoveSan = $state<string | null>(null);
+  let movePoints = $state(0);
+  let evaluatingMove = $state(false);
+
   // Score tracking (stored in localStorage)
   let totalGuesses = $state(0);
   let totalDifference = $state(0);
   let streak = $state(0);
   let bestStreak = $state(0);
+  let totalMovePoints = $state(0);
 
   // Last move display
   let displayLastMove = $state<{ from: string; to: string } | null>(null);
@@ -57,6 +67,7 @@
         totalGuesses = stats.totalGuesses || 0;
         totalDifference = stats.totalDifference || 0;
         bestStreak = stats.bestStreak || 0;
+        totalMovePoints = stats.totalMovePoints || 0;
       }
     }
   });
@@ -66,7 +77,8 @@
       localStorage.setItem('elo-game-stats', JSON.stringify({
         totalGuesses,
         totalDifference,
-        bestStreak
+        bestStreak,
+        totalMovePoints
       }));
     }
   }
@@ -81,6 +93,11 @@
     allMoves = [];
     currentMoveIndex = -1;
     blunderMoveIndex = -1;
+    bestMoveEval = null;
+    userMoveEval = null;
+    userMoveSan = null;
+    bestMoveSan = null;
+    movePoints = 0;
 
     try {
       puzzle = await getBlunderPuzzleById(id);
@@ -97,6 +114,26 @@
         displayLastMove = { from: allMoves[startIndex].from, to: allMoves[startIndex].to };
       } else {
         currentFen = puzzle.preFen;
+      }
+
+      // Pre-evaluate best move for comparison
+      if (browser) {
+        evaluatePosition(puzzle.preFen, 15).then((evalResult) => {
+          bestMoveEval = evalResult;
+          // Convert best move UCI to SAN
+          if (evalResult.bestMove) {
+            const chess = new Chess(puzzle!.preFen);
+            const from = evalResult.bestMove.slice(0, 2);
+            const to = evalResult.bestMove.slice(2, 4);
+            const promotion = evalResult.bestMove.length > 4 ? evalResult.bestMove[4] : undefined;
+            try {
+              const move = chess.move({ from, to, promotion });
+              if (move) {
+                bestMoveSan = move.san;
+              }
+            } catch {}
+          }
+        }).catch(console.error);
       }
 
       // Auto-start animation after a short delay
@@ -154,6 +191,7 @@
 
   const MOVE_DELAY = 1200;
   const INITIAL_DELAY = 1500;
+  const AFTER_BLUNDER_DELAY = 2000; // Pause after showing blunder before solution
 
   function startAnimation() {
     if (!puzzle || isAnimating) return;
@@ -181,7 +219,9 @@
 
     // Continue animation for solution moves
     if (targetIndex < allMoves.length - 1 && targetIndex >= blunderMoveIndex) {
-      setTimeout(() => animateToIndex(targetIndex + 1), MOVE_DELAY);
+      // Use longer delay after blunder, normal delay for rest of solution
+      const delay = targetIndex === blunderMoveIndex ? AFTER_BLUNDER_DELAY : MOVE_DELAY;
+      setTimeout(() => animateToIndex(targetIndex + 1), delay);
     } else {
       finishAnimation();
     }
@@ -216,7 +256,7 @@
   });
 
   function handleHistoryNavigate(index: number) {
-    if (isAnimating || !puzzle) return;
+    if (isAnimating || !puzzle || phase === 'findingBetterMove') return;
 
     currentMoveIndex = index;
 
@@ -252,6 +292,98 @@
     phase = 'revealed';
   }
 
+  async function startFindingBetterMove() {
+    if (!puzzle) return;
+
+    // Set phase FIRST so interactive prop is true when setPosition is called
+    phase = 'findingBetterMove';
+
+    // Wait for Svelte to update props before calling setPosition
+    await tick();
+
+    // Reset board to position before blunder
+    currentFen = puzzle.preFen;
+    chessBoardRef?.setPosition(puzzle.preFen);
+
+    // Show opponent's last move
+    if (puzzle.opponentLastMove) {
+      displayLastMove = { from: puzzle.opponentLastMove.from, to: puzzle.opponentLastMove.to };
+    } else {
+      displayLastMove = null;
+    }
+  }
+
+  async function handleBetterMove(move: { from: string; to: string; uci: string; san: string; fen: string }) {
+    if (!puzzle || evaluatingMove) return;
+
+    userMoveSan = move.san;
+    displayLastMove = { from: move.from, to: move.to };
+    currentFen = move.fen;
+
+    evaluatingMove = true;
+
+    try {
+      // Evaluate the position after user's move
+      userMoveEval = await evaluatePosition(move.fen, 15);
+
+      // Calculate points based on how close to best move
+      movePoints = calculateMovePoints(userMoveEval, bestMoveEval, move.uci);
+
+      totalMovePoints += movePoints;
+      saveStats();
+
+      phase = 'finalResult';
+    } catch (e) {
+      console.error('Evaluation failed:', e);
+      phase = 'finalResult';
+    } finally {
+      evaluatingMove = false;
+    }
+  }
+
+  function calculateMovePoints(userEval: EvalResult | null, bestEval: EvalResult | null, userMoveUci: string): number {
+    // If user found the best move
+    if (bestEval?.bestMove && userMoveUci === bestEval.bestMove) {
+      return 100;
+    }
+
+    if (!userEval || !bestEval) return 0;
+
+    // Calculate centipawn loss (from the opponent's perspective since it's their response)
+    // Higher score for the opponent = worse for us
+    // Note: eval is from side-to-move perspective, which after our move is opponent
+    const userScore = -userEval.score; // Flip because it's opponent's turn
+    const bestScore = -bestEval.score;
+
+    const cpLoss = bestScore - userScore;
+
+    // Award points based on centipawn loss
+    if (cpLoss <= 0) return 100;      // Equal or better than engine (rare)
+    if (cpLoss <= 25) return 90;      // Excellent
+    if (cpLoss <= 50) return 75;      // Very good
+    if (cpLoss <= 100) return 60;     // Good
+    if (cpLoss <= 200) return 40;     // Okay
+    if (cpLoss <= 400) return 20;     // Inaccuracy
+    return 0;                          // Blunder territory
+  }
+
+  function getMovePointsMessage(points: number): string {
+    if (points === 100) return "Perfect! You found the best move!";
+    if (points >= 90) return "Excellent! Nearly perfect!";
+    if (points >= 75) return "Very good move!";
+    if (points >= 60) return "Good move!";
+    if (points >= 40) return "Decent move.";
+    if (points >= 20) return "Could be better...";
+    return "That's still a mistake!";
+  }
+
+  function getMovePointsColor(points: number): string {
+    if (points >= 90) return '#81b64c';
+    if (points >= 60) return '#96bc4b';
+    if (points >= 40) return '#e6a23c';
+    return '#e06c6c';
+  }
+
   function getScoreMessage(diff: number): string {
     if (diff <= 50) return "Incredible! Almost exact!";
     if (diff <= 100) return "Excellent guess!";
@@ -266,6 +398,10 @@
     if (diff <= 200) return '#96bc4b';
     if (diff <= 300) return '#e6a23c';
     return '#e06c6c';
+  }
+
+  function skipBetterMove() {
+    phase = 'finalResult';
   }
 
   const averageDifference = $derived(totalGuesses > 0 ? Math.round(totalDifference / totalGuesses) : 0);
@@ -289,6 +425,18 @@
     {:else if puzzle && phase === 'revealed'}
       <p class="task-info" style="color: {getScoreColor(difference)}">
         {getScoreMessage(difference)}
+      </p>
+    {:else if puzzle && phase === 'findingBetterMove'}
+      <p class="task-info">
+        Find a better move than <strong>{puzzle.blunderSan}??</strong>
+      </p>
+    {:else if puzzle && phase === 'finalResult'}
+      <p class="task-info" style="color: {getMovePointsColor(movePoints)}">
+        {#if userMoveSan}
+          {getMovePointsMessage(movePoints)}
+        {:else}
+          Skipped
+        {/if}
       </p>
     {/if}
   </header>
@@ -317,8 +465,8 @@
             <span class="stat-value">{streak}</span>
           </div>
           <div class="stat-row">
-            <span class="stat-label">Best</span>
-            <span class="stat-value">{bestStreak}</span>
+            <span class="stat-label">Move Pts</span>
+            <span class="stat-value">{totalMovePoints}</span>
           </div>
         </div>
         <div class="meta-item puzzle-info">
@@ -338,7 +486,8 @@
           bind:this={chessBoardRef}
           fen={currentFen}
           orientation={blunderingPlayer?.color || 'white'}
-          interactive={false}
+          interactive={phase === 'findingBetterMove' && !evaluatingMove}
+          onMove={handleBetterMove}
           lastMove={displayLastMove ?? undefined}
           lastMoveColor={currentMoveIndex === blunderMoveIndex ? 'red' : 'green'}
         />
@@ -407,6 +556,54 @@
               </p>
               <p class="punishment">Punishment: {puzzle.solutionSan.join(' ')}</p>
             </div>
+            <button class="primary-btn" onclick={startFindingBetterMove}>
+              Find a Better Move
+            </button>
+            <button class="secondary-btn" onclick={skipBetterMove}>
+              Skip
+            </button>
+          </div>
+        {:else if phase === 'findingBetterMove'}
+          <div class="action-box">
+            {#if evaluatingMove}
+              <p class="instruction evaluating">Analyzing your move...</p>
+            {:else}
+              <p class="instruction">Play a move on the board</p>
+              <p class="hint">Can you do better than <strong>{puzzle.blunderSan}??</strong></p>
+            {/if}
+            <button class="secondary-btn" onclick={skipBetterMove}>
+              Skip
+            </button>
+          </div>
+        {:else if phase === 'finalResult'}
+          <div class="result-box">
+            {#if userMoveSan}
+              <div class="move-result">
+                <div class="result-item">
+                  <span class="result-label">Your Move</span>
+                  <span class="result-value move-san">{userMoveSan}</span>
+                </div>
+                <div class="result-item">
+                  <span class="result-label">Best Move</span>
+                  <span class="result-value move-san best">{bestMoveSan || '...'}</span>
+                </div>
+              </div>
+              <div class="points-display" style="color: {getMovePointsColor(movePoints)}">
+                +{movePoints} points
+              </div>
+            {/if}
+            <div class="final-summary">
+              <div class="summary-row">
+                <span>Elo Guess:</span>
+                <span style="color: {getScoreColor(difference)}">Off by {difference}</span>
+              </div>
+              {#if userMoveSan}
+                <div class="summary-row">
+                  <span>Better Move:</span>
+                  <span style="color: {getMovePointsColor(movePoints)}">{movePoints} pts</span>
+                </div>
+              {/if}
+            </div>
             <button class="primary-btn" onclick={loadRandomPuzzle}>
               Next Puzzle
             </button>
@@ -428,15 +625,6 @@
 </main>
 
 <style>
-  :global(body) {
-    font-family: 'Berkeley Mono', 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
-    margin: 0;
-    padding: 20px;
-    background: #161512;
-    color: #bababa;
-    min-height: 100vh;
-  }
-
   main {
     max-width: 1000px;
     margin: 0 auto;
@@ -597,8 +785,29 @@
 
   .instruction {
     color: #787672;
-    margin: 0;
+    margin: 0 0 0.5rem 0;
     text-align: center;
+  }
+
+  .instruction.evaluating {
+    color: #6c9ce0;
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .hint {
+    color: #5c5955;
+    font-size: 0.8rem;
+    text-align: center;
+    margin: 0 0 0.75rem 0;
+  }
+
+  .hint strong {
+    color: #e06c6c;
   }
 
   .primary-btn {
@@ -617,6 +826,25 @@
 
   .primary-btn:hover {
     background: #72a92e;
+  }
+
+  .secondary-btn {
+    width: 100%;
+    padding: 0.625rem;
+    margin-top: 0.5rem;
+    background: #2b2926;
+    color: #787672;
+    border: 1px solid #3d3a37;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .secondary-btn:hover {
+    background: #3d3a37;
+    color: #bababa;
   }
 
   .blunder-info {
@@ -705,7 +933,7 @@
     text-align: center;
   }
 
-  .result-comparison {
+  .result-comparison, .move-result {
     display: flex;
     justify-content: center;
     gap: 2rem;
@@ -731,12 +959,26 @@
     color: #bababa;
   }
 
+  .result-value.move-san {
+    font-size: 1.25rem;
+  }
+
+  .result-value.move-san.best {
+    color: #81b64c;
+  }
+
   .result-item.actual .result-value {
     color: #fff;
   }
 
   .difference-display {
     font-size: 1.25rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+  }
+
+  .points-display {
+    font-size: 1.5rem;
     font-weight: 500;
     margin-bottom: 1rem;
   }
@@ -761,6 +1003,28 @@
     margin-top: 0.5rem;
     color: #787672;
     display: block;
+  }
+
+  .final-summary {
+    background: #1e1d1b;
+    padding: 0.75rem;
+    border-radius: 2px;
+    margin-bottom: 1rem;
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    padding: 0.25rem 0;
+  }
+
+  .summary-row:first-child {
+    padding-top: 0;
+  }
+
+  .summary-row:last-child {
+    padding-bottom: 0;
   }
 
   button {

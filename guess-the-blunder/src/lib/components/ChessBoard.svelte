@@ -48,6 +48,31 @@
     }
   });
 
+  // Update board when interactive changes
+  $effect(() => {
+    // Access interactive at top level to ensure it's tracked as a dependency
+    const isInteractive = interactive;
+
+    if (ground && chess) {
+      const legalMoves = getLegalMoves(chess);
+      const turn = getTurnFromFen(chess.fen());
+
+      ground.set({
+        movable: {
+          color: isInteractive ? turn : undefined,
+          dests: isInteractive ? toChessgroundDests(legalMoves) : undefined,
+          free: false,
+        },
+        draggable: {
+          enabled: isInteractive,
+        },
+        selectable: {
+          enabled: isInteractive,
+        },
+      });
+    }
+  });
+
   // Update orientation when it changes
   $effect(() => {
     if (ground) {
@@ -188,6 +213,12 @@
         movable: {
           color: interactive ? turn : undefined,
           dests: interactive ? toChessgroundDests(legalMoves) : undefined,
+        },
+        draggable: {
+          enabled: interactive,
+        },
+        selectable: {
+          enabled: interactive,
         },
         check: chess.isCheck(),
       });

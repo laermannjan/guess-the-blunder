@@ -29,15 +29,6 @@
 </main>
 
 <style>
-  :global(body) {
-    font-family: 'Berkeley Mono', 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
-    margin: 0;
-    padding: 20px;
-    background: #161512;
-    color: #bababa;
-    min-height: 100vh;
-  }
-
   main {
     max-width: 1000px;
     margin: 0 auto;
